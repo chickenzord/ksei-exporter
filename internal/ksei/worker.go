@@ -22,7 +22,7 @@ type Worker struct {
 	UpdateInterval time.Duration
 	Accounts       []Account
 
-	balance *prometheus.GaugeVec
+	metricAssetValue *prometheus.GaugeVec
 }
 
 func (w *Worker) Register(p *prometheus.Registry) error {
@@ -30,7 +30,7 @@ func (w *Worker) Register(p *prometheus.Registry) error {
 		return fmt.Errorf("cannot use nil registry")
 	}
 
-	w.balance = prometheus.NewGaugeVec(
+	w.metricAssetValue = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ksei",
 			Name:      "asset_value",
@@ -47,7 +47,7 @@ func (w *Worker) Register(p *prometheus.Registry) error {
 		},
 	)
 
-	if err := p.Register(w.balance); err != nil {
+	if err := p.Register(w.metricAssetValue); err != nil {
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (w *Worker) UpdateMetrics(a Account) error {
 			}
 
 			for _, b := range res.Data {
-				w.balance.With(prometheus.Labels{
+				w.metricAssetValue.With(prometheus.Labels{
 					"ksei_account":     a.Username,
 					"security_account": b.Account,
 					"security_name":    b.Participant,
