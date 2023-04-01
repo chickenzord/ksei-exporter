@@ -12,6 +12,24 @@ Prometheus exporter for KSEI financial data as metrics. Using [GoKSEI](https://g
 ksei_asset_value{asset_name="GOTO GOJEK TOKOPEDIA Tbk",asset_symbol="GOTO",asset_type="equity",currency="IDR",ksei_account="***@gmail.com",security_account="XL001******",security_name="PT. Stockbit Sekuritas Digital"} 99999
 ```
 
+## Configuration
+
+ksei-exporter is configured using enviroment variables:
+
+```sh
+SERVER_BIND_HOST=0.0.0.0
+SERVER_BIND_PORT=8080
+
+KSEI_ACCOUNTS="
+john.doe@example.com:johnsaltedpassword
+jane.doe@example.com:janesaltedpassword
+"
+KSEI_AUTH_DIR=.goksei.auth
+KSEI_REFRESH_INTERVAL=1h
+KSEI_REFRESH_JITTER=0.2
+
+```
+
 ## TODO
 
 - [ ] Support cash balance
