@@ -21,6 +21,7 @@ func main() {
 		panic(err)
 	}
 
+	log.Level(zerolog.Level(zerolog.DebugLevel))
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	log.Info().Int("count", len(cfg.KSEI.Accounts)).Msg("KSEI accounts loaded")
 

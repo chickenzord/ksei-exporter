@@ -10,6 +10,7 @@ import (
 	"github.com/chickenzord/ksei-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -81,6 +82,11 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 			if err != nil {
 				return err
 			}
+
+			log.Debug().
+				Str("account", a.Username).
+				Str("type", t.Name()).
+				Msg("updating metrics")
 
 			for _, b := range res.Data {
 				e.metricAssetValue.With(prometheus.Labels{
