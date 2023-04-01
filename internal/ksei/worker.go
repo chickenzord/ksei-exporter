@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chickenzord/goksei/pkg/goksei"
+	"github.com/chickenzord/goksei"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -19,10 +20,32 @@ var (
 )
 
 type Worker struct {
-	UpdateInterval time.Duration
-	Accounts       []Account
+	Accounts []Account
 
+	AuthDir         string        `envconfig:"auth_dir"`
+	RefreshInterval time.Duration `envconfig:"refresh_interval" default:"1h"`
+	RefreshJitter   float32       `envconfig:"refresh_jitter" default:"0.2"`
+
+	authStore        goksei.AuthStore
 	metricAssetValue *prometheus.GaugeVec
+}
+
+func NewWorkerFromEnv() (*Worker, error) {
+	var worker Worker
+
+	if err := envconfig.Process("ksei", &worker); err != nil {
+		return nil, err
+	}
+
+	authStore, err := goksei.NewFileAuthStore(worker.AuthDir)
+	if err != nil {
+		return nil, err
+	}
+
+	worker.authStore = authStore
+	worker.Accounts = accountsFromEnv()
+
+	return &worker, nil
 }
 
 func (w *Worker) Register(p *prometheus.Registry) error {
@@ -54,8 +77,12 @@ func (w *Worker) Register(p *prometheus.Registry) error {
 	return nil
 }
 
-func (w *Worker) UpdateMetrics(a Account) error {
-	c := goksei.NewClient(a.Username, a.Password)
+func (w *Worker) updateMetrics(a Account) error {
+	c := goksei.NewClient(goksei.ClientOpts{
+		AuthStore: w.authStore,
+		Username:  a.Username,
+		Password:  a.Password,
+	})
 
 	e := errgroup.Group{}
 
@@ -85,4 +112,30 @@ func (w *Worker) UpdateMetrics(a Account) error {
 	}
 
 	return e.Wait()
+}
+
+func (w *Worker) UpdateMetrics() error {
+	e := errgroup.Group{}
+
+	for _, account := range w.Accounts {
+		account := account
+
+		e.Go(func() error {
+			return w.updateMetrics(account)
+		})
+	}
+
+	return e.Wait()
+}
+
+func (w *Worker) WatchMetrics() {
+	if err := w.UpdateMetrics(); err != nil {
+		fmt.Println(err)
+	}
+
+	for range time.Tick(w.RefreshInterval) {
+		if err := w.UpdateMetrics(); err != nil {
+			fmt.Println(err)
+		}
+	}
 }

@@ -10,7 +10,7 @@ type Account struct {
 	Password string
 }
 
-func AccountsFromEnv() []Account {
+func accountsFromEnv() []Account {
 	accounts := []Account{}
 
 	pairs := strings.Fields(os.Getenv("KSEI_ACCOUNTS"))

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/chickenzord/ksei-exporter/internal/ksei"
 	"github.com/go-chi/chi/v5"
@@ -15,28 +14,22 @@ import (
 func main() {
 	_ = godotenv.Overload(".env")
 
-	accounts := ksei.AccountsFromEnv()
-	fmt.Printf("Loaded %d KSEI accounts\n", len(accounts))
-	for _, acc := range accounts {
-		fmt.Printf("%s\n", acc.Username)
-	}
-
 	registry := prometheus.NewRegistry()
 
-	worker := &ksei.Worker{
-		UpdateInterval: 5 * time.Minute,
-		Accounts:       accounts,
+	worker, err := ksei.NewWorkerFromEnv()
+	if err != nil {
+		panic(err)
 	}
+
+	fmt.Printf("Loaded %d KSEI accounts\n", len(worker.Accounts))
 
 	if err := worker.Register(registry); err != nil {
 		panic(err)
 	}
 
-	for _, account := range accounts {
-		if err := worker.UpdateMetrics(account); err != nil {
-			panic(err)
-		}
-	}
+	go func() {
+		worker.WatchMetrics()
+	}()
 
 	r := chi.NewRouter()
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
