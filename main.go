@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/chickenzord/ksei-exporter/internal/config"
 	"github.com/chickenzord/ksei-exporter/internal/exporter"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -18,11 +21,16 @@ func main() {
 		panic(err)
 	}
 
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	log.Info().Int("count", len(cfg.KSEI.Accounts)).Msg("KSEI accounts loaded")
+
+	log.Info().Msg("initializing metrics")
 	exp, err := exporter.New(cfg.KSEI)
 	if err != nil {
 		panic(err)
 	}
 
+	log.Info().Msg("starting background metrics updater")
 	go func() {
 		exp.WatchMetrics()
 	}()
@@ -33,8 +41,8 @@ func main() {
 	})
 	r.Get("/metrics", exp.HTTPHandler().ServeHTTP)
 
-	fmt.Println("Starting server")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	log.Info().Msgf("server listening on %s", cfg.Server.BindAddress())
+	if err := http.ListenAndServe(cfg.Server.BindAddress(), r); err != nil {
 		panic(err)
 	}
 }

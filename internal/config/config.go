@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -9,6 +10,10 @@ import (
 type Server struct {
 	BindHost string `envconfig:"bind_host" default:"0.0.0.0"`
 	BindPort int    `envconfig:"bind_port" default:"8080"`
+}
+
+func (s *Server) BindAddress() string {
+	return fmt.Sprintf("%s:%d", s.BindHost, s.BindPort)
 }
 
 type KSEI struct {
