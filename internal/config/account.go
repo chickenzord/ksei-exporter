@@ -1,7 +1,6 @@
-package ksei
+package config
 
 import (
-	"os"
 	"strings"
 )
 
@@ -10,10 +9,20 @@ type Account struct {
 	Password string
 }
 
-func accountsFromEnv() []Account {
+type Accounts []Account
+
+func (a *Accounts) Decode(val string) error {
+	accounts := accountsFromString(val)
+
+	*a = accounts
+
+	return nil
+}
+
+func accountsFromString(str string) []Account {
 	accounts := []Account{}
 
-	pairs := strings.Fields(os.Getenv("KSEI_ACCOUNTS"))
+	pairs := strings.Fields(str)
 
 	for _, pair := range pairs {
 		frags := strings.SplitN(pair, ":", 2)

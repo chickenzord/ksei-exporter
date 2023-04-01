@@ -4,38 +4,34 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chickenzord/ksei-exporter/internal/ksei"
+	"github.com/chickenzord/ksei-exporter/internal/config"
+	"github.com/chickenzord/ksei-exporter/internal/exporter"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
 	_ = godotenv.Overload(".env")
 
-	registry := prometheus.NewRegistry()
-
-	worker, err := ksei.NewWorkerFromEnv()
+	cfg, err := config.FromEnv()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Loaded %d KSEI accounts\n", len(worker.Accounts))
-
-	if err := worker.Register(registry); err != nil {
+	exp, err := exporter.New(cfg.KSEI)
+	if err != nil {
 		panic(err)
 	}
 
 	go func() {
-		worker.WatchMetrics()
+		exp.WatchMetrics()
 	}()
 
 	r := chi.NewRouter()
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "pong")
 	})
-	r.Get("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP)
+	r.Get("/metrics", exp.HTTPHandler().ServeHTTP)
 
 	fmt.Println("Starting server")
 	if err := http.ListenAndServe(":8080", r); err != nil {

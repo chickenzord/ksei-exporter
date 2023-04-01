@@ -1,13 +1,15 @@
-package ksei
+package exporter
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/chickenzord/goksei"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/chickenzord/ksei-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -19,41 +21,21 @@ var (
 	}
 )
 
-type Worker struct {
-	Accounts []Account
-
-	AuthDir         string        `envconfig:"auth_dir"`
-	RefreshInterval time.Duration `envconfig:"refresh_interval" default:"1h"`
-	RefreshJitter   float32       `envconfig:"refresh_jitter" default:"0.2"`
-
+type Exporter struct {
+	accounts         []config.Account
 	authStore        goksei.AuthStore
+	registry         *prometheus.Registry
 	metricAssetValue *prometheus.GaugeVec
 }
 
-func NewWorkerFromEnv() (*Worker, error) {
-	var worker Worker
-
-	if err := envconfig.Process("ksei", &worker); err != nil {
-		return nil, err
-	}
-
-	authStore, err := goksei.NewFileAuthStore(worker.AuthDir)
+func New(ksei config.KSEI) (*Exporter, error) {
+	authStore, err := goksei.NewFileAuthStore(ksei.AuthDir)
 	if err != nil {
 		return nil, err
 	}
 
-	worker.authStore = authStore
-	worker.Accounts = accountsFromEnv()
-
-	return &worker, nil
-}
-
-func (w *Worker) Register(p *prometheus.Registry) error {
-	if p == nil {
-		return fmt.Errorf("cannot use nil registry")
-	}
-
-	w.metricAssetValue = prometheus.NewGaugeVec(
+	registry := prometheus.NewRegistry()
+	metricAssetValue := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "ksei",
 			Name:      "asset_value",
@@ -70,33 +52,38 @@ func (w *Worker) Register(p *prometheus.Registry) error {
 		},
 	)
 
-	if err := p.Register(w.metricAssetValue); err != nil {
-		return err
+	if err := registry.Register(metricAssetValue); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &Exporter{
+		accounts:         ksei.Accounts,
+		authStore:        authStore,
+		registry:         registry,
+		metricAssetValue: metricAssetValue,
+	}, nil
 }
 
-func (w *Worker) updateMetrics(a Account) error {
+func (e *Exporter) updateMetrics(a config.Account) error {
 	c := goksei.NewClient(goksei.ClientOpts{
-		AuthStore: w.authStore,
+		AuthStore: e.authStore,
 		Username:  a.Username,
 		Password:  a.Password,
 	})
 
-	e := errgroup.Group{}
+	errs := errgroup.Group{}
 
 	for _, t := range portfolioTypes {
 		t := t
 
-		e.Go(func() error {
+		errs.Go(func() error {
 			res, err := c.GetShareBalances(t)
 			if err != nil {
 				return err
 			}
 
 			for _, b := range res.Data {
-				w.metricAssetValue.With(prometheus.Labels{
+				e.metricAssetValue.With(prometheus.Labels{
 					"ksei_account":     a.Username,
 					"security_account": b.Account,
 					"security_name":    b.Participant,
@@ -111,31 +98,37 @@ func (w *Worker) updateMetrics(a Account) error {
 		})
 	}
 
-	return e.Wait()
+	return errs.Wait()
 }
 
-func (w *Worker) UpdateMetrics() error {
-	e := errgroup.Group{}
+func (e *Exporter) UpdateMetrics() error {
+	errs := errgroup.Group{}
 
-	for _, account := range w.Accounts {
+	for _, account := range e.accounts {
 		account := account
 
-		e.Go(func() error {
-			return w.updateMetrics(account)
+		errs.Go(func() error {
+			return e.updateMetrics(account)
 		})
 	}
 
-	return e.Wait()
+	return errs.Wait()
 }
 
-func (w *Worker) WatchMetrics() {
-	if err := w.UpdateMetrics(); err != nil {
+func (e *Exporter) WatchMetrics() {
+	if err := e.UpdateMetrics(); err != nil {
 		fmt.Println(err)
 	}
 
-	for range time.Tick(w.RefreshInterval) {
-		if err := w.UpdateMetrics(); err != nil {
+	for range time.Tick(5 * time.Minute) {
+		if err := e.UpdateMetrics(); err != nil {
 			fmt.Println(err)
 		}
 	}
+}
+
+func (e *Exporter) HTTPHandler() http.Handler {
+	return promhttp.HandlerFor(e.registry, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	})
 }
