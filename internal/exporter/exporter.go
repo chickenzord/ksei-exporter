@@ -3,7 +3,6 @@ package exporter
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/chickenzord/goksei"
@@ -103,7 +102,7 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 					"currency":         b.Currency,
 					"asset_type":       t.Name(),
 					"asset_symbol":     b.Symbol(),
-					"asset_name":       strings.Split(b.FullName, " - ")[1], // TODO create helper func in goksei lib
+					"asset_name":       b.Name(),
 				}).Set(b.CurrentValue())
 			}
 
