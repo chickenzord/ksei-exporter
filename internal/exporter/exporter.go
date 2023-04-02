@@ -78,15 +78,22 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 		t := t
 
 		errs.Go(func() error {
+			var err error
+			start := time.Now()
+
+			defer func() {
+				log.Debug().
+					Str("account", a.Username).
+					Str("type", t.Name()).
+					TimeDiff("elapsed", time.Now(), start).
+					Err(err).
+					Msg("metrics updated")
+			}()
+
 			res, err := c.GetShareBalances(t)
 			if err != nil {
 				return err
 			}
-
-			log.Debug().
-				Str("account", a.Username).
-				Str("type", t.Name()).
-				Msg("updating metrics")
 
 			for _, b := range res.Data {
 				e.metricAssetValue.With(prometheus.Labels{
@@ -104,7 +111,11 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 		})
 	}
 
-	return errs.Wait()
+	if err := errs.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *Exporter) UpdateMetrics() error {
@@ -118,7 +129,11 @@ func (e *Exporter) UpdateMetrics() error {
 		})
 	}
 
-	return errs.Wait()
+	if err := errs.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *Exporter) WatchMetrics() {
