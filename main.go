@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/chickenzord/ksei-exporter/internal/config"
 	"github.com/chickenzord/ksei-exporter/internal/exporter"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -39,9 +39,9 @@ func main() {
 	}()
 
 	r := chi.NewRouter()
-	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintf(w, "pong")
-	})
+	r.Use(middleware.Heartbeat("/ping"))
+	r.Use(middleware.StripSlashes)
+	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: &log.Logger}))
 	r.Get("/metrics", exp.HTTPHandler().ServeHTTP)
 
 	log.Info().Msgf("server listening on %s", cfg.Server.BindAddress())
