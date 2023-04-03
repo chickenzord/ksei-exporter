@@ -26,6 +26,7 @@ func main() {
 
 	log.Info().Int("count", len(cfg.KSEI.Accounts)).Msg("KSEI accounts loaded")
 	log.Info().Msg("initializing metrics")
+
 	exp, err := exporter.New(cfg.KSEI)
 	if err != nil {
 		panic(err)
