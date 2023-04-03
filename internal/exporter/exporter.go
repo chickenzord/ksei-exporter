@@ -50,6 +50,7 @@ func New(ksei config.KSEI) (*Exporter, error) {
 			"security_name",
 			"currency",
 			"asset_type",
+			"asset_subtype",
 			"asset_symbol",
 			"asset_name",
 		},
@@ -100,12 +101,19 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 			}
 
 			for _, b := range res.Data {
+				subtype := "unknown"
+
+				if mutualFund, ok := goksei.MutualFundByCode(b.Symbol()); ok {
+					subtype = mutualFund.FundType
+				}
+
 				e.metricAssetValue.With(prometheus.Labels{
 					"ksei_account":     a.Username,
 					"security_account": b.Account,
 					"security_name":    b.Participant,
 					"currency":         b.Currency,
 					"asset_type":       t.Name(),
+					"asset_subtype":    subtype,
 					"asset_symbol":     b.Symbol(),
 					"asset_name":       b.Name(),
 				}).Set(b.CurrentValue())
