@@ -2,18 +2,31 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
 
 type Server struct {
-	BindHost string `envconfig:"bind_host" default:"0.0.0.0"`
-	BindPort int    `envconfig:"bind_port" default:"8080"`
+	BindHost  string   `envconfig:"bind_host" default:"0.0.0.0"`
+	BindPort  int      `envconfig:"bind_port" default:"8080"`
+	BasicAuth []string `envconfig:"basic_auth"`
 }
 
 func (s *Server) BindAddress() string {
 	return fmt.Sprintf("%s:%d", s.BindHost, s.BindPort)
+}
+
+func (s *Server) BasicAuthCredentials() map[string]string {
+	credentials := map[string]string{}
+
+	for _, pair := range s.BasicAuth {
+		frags := strings.SplitN(pair, ":", 2)
+		credentials[frags[0]] = frags[1]
+	}
+
+	return credentials
 }
 
 type KSEI struct {

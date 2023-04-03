@@ -39,9 +39,15 @@ func main() {
 	}()
 
 	r := chi.NewRouter()
+	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: &log.Logger}))
+
+	if creds := cfg.Server.BasicAuthCredentials(); len(creds) > 0 {
+		r.Use(middleware.BasicAuth("ksei-exporter", cfg.Server.BasicAuthCredentials()))
+	}
+
 	r.Get("/metrics", exp.HTTPHandler().ServeHTTP)
 
 	log.Info().Msgf("server listening on %s", cfg.Server.BindAddress())
