@@ -2,3 +2,5 @@
 .github/
 .goksei-auth/
 *.md
+docker-compose.yaml
+.data/

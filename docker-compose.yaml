@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  ksei-exporter:
+    build: .
+    ports:
+      - 8080:8080
+    working_dir: /app
+    volumes:
+      - .:/app
+
+  prometheus:
+    image: docker.io/prom/prometheus
+    ports:
+      - 9090:9090
+    links:
+      - ksei-exporter
+    volumes:
+      - ./.data/etc/prometheus:/etc/prometheus
+      - ./.data/prometheus:/prometheus
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_DATABASE_TYPE=sqlite3
+      - GF_DATABASE_PATH=/database/grafana.sqlite3
+    links:
+      - prometheus
+    volumes:
+      - ./.data/database:/database
+      - ./.data/var/lib/grafana:/var/lib/grafana
