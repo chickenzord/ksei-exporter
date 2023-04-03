@@ -3,7 +3,7 @@ module github.com/chickenzord/ksei-exporter
 go 1.18
 
 require (
-	github.com/chickenzord/goksei v0.3.1
+	github.com/chickenzord/goksei v0.4.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
