@@ -26,6 +26,7 @@ func accountsFromString(str string) []Account {
 
 	for _, pair := range pairs {
 		frags := strings.SplitN(pair, ":", 2)
+
 		accounts = append(accounts, Account{
 			Username: frags[0],
 			Password: frags[1],

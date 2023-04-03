@@ -9,6 +9,9 @@ on:
   pull_request:
     branches:
       - 'main'
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
 
 env:
   REGISTRY: ghcr.io

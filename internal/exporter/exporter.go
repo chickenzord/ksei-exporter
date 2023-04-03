@@ -110,11 +110,7 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 		})
 	}
 
-	if err := errs.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	return errs.Wait()
 }
 
 func (e *Exporter) UpdateMetrics() error {
@@ -128,11 +124,7 @@ func (e *Exporter) UpdateMetrics() error {
 		})
 	}
 
-	if err := errs.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	return errs.Wait()
 }
 
 func (e *Exporter) WatchMetrics() {
