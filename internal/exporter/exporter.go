@@ -1,7 +1,7 @@
 package exporter
 
 import (
-	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -26,6 +26,9 @@ type Exporter struct {
 	authStore        goksei.AuthStore
 	registry         *prometheus.Registry
 	metricAssetValue *prometheus.GaugeVec
+
+	refreshInterval time.Duration
+	refreshJitter   float32
 }
 
 func New(ksei config.KSEI) (*Exporter, error) {
@@ -61,6 +64,8 @@ func New(ksei config.KSEI) (*Exporter, error) {
 		authStore:        authStore,
 		registry:         registry,
 		metricAssetValue: metricAssetValue,
+		refreshInterval:  ksei.RefreshInterval,
+		refreshJitter:    ksei.RefreshJitter,
 	}, nil
 }
 
@@ -128,14 +133,15 @@ func (e *Exporter) UpdateMetrics() error {
 }
 
 func (e *Exporter) WatchMetrics() {
-	if err := e.UpdateMetrics(); err != nil {
-		fmt.Println(err)
-	}
-
-	for range time.Tick(5 * time.Minute) {
+	for {
 		if err := e.UpdateMetrics(); err != nil {
-			fmt.Println(err)
+			log.Err(err).Msg("error updating metrics")
 		}
+
+		delay := e.refreshInterval + time.Duration(rand.Float32()*e.refreshJitter*float32(e.refreshInterval.Nanoseconds()))
+
+		log.Debug().Msgf("sleeping %s", delay)
+		time.Sleep(delay)
 	}
 }
 
