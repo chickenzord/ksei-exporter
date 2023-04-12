@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
@@ -79,6 +80,33 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 
 	errs := errgroup.Group{}
 
+	errs.Go(func() error {
+		cashBalances, err := c.GetCashBalances()
+		if err != nil {
+			return err
+		}
+
+		for _, b := range cashBalances.Data {
+			bankName := "Unknown Bank"
+
+			if name, ok := goksei.CustodianBankNameByID(b.BankID); ok {
+				bankName = name
+			}
+
+			e.metricAssetValue.With(prometheus.Labels{
+				"ksei_account":     a.Username,
+				"security_account": b.AccountNumber,
+				"security_name":    bankName,
+				"currency":         b.Currency,
+				"asset_type":       goksei.CashType.Name(),
+				"asset_subtype":    "rdn",
+				"asset_symbol":     b.BankID,
+				"asset_name":       fmt.Sprintf("Cash %s", bankName),
+			}).Set(b.CurrentBalance())
+		}
+		return nil
+	})
+
 	for _, t := range portfolioTypes {
 		t := t
 
@@ -95,16 +123,20 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 					Msg("metrics updated")
 			}()
 
-			res, err := c.GetShareBalances(t)
+			shareBalances, err := c.GetShareBalances(t)
 			if err != nil {
 				return err
 			}
 
-			for _, b := range res.Data {
-				subtype := "unknown"
+			for _, b := range shareBalances.Data {
+				subtype := ""
 
-				if mutualFund, ok := goksei.MutualFundByCode(b.Symbol()); ok {
-					subtype = mutualFund.FundType
+				if t == goksei.MutualFundType {
+					if mutualFund, ok := goksei.MutualFundByCode(b.Symbol()); ok {
+						subtype = mutualFund.FundType
+					} else {
+						subtype = "unknown"
+					}
 				}
 
 				e.metricAssetValue.With(prometheus.Labels{
