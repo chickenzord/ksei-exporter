@@ -81,6 +81,18 @@ func (e *Exporter) updateMetrics(a config.Account) error {
 	errs := errgroup.Group{}
 
 	errs.Go(func() error {
+		var err error
+		start := time.Now()
+
+		defer func() {
+			log.Debug().
+				Str("account", a.Username).
+				Str("type", goksei.CashType.Name()).
+				TimeDiff("elapsed", time.Now(), start).
+				Err(err).
+				Msg("metrics updated")
+		}()
+
 		cashBalances, err := c.GetCashBalances()
 		if err != nil {
 			return err
