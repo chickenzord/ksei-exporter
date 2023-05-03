@@ -23,7 +23,8 @@ type Exporter struct {
 	accounts  []config.Account
 	authStore goksei.AuthStore
 
-	assetValue *prometheus.GaugeVec
+	assetValue      *prometheus.GaugeVec
+	requestDuration *prometheus.HistogramVec
 }
 
 func New(ksei config.KSEI) (*Exporter, error) {
@@ -53,11 +54,27 @@ func New(ksei config.KSEI) (*Exporter, error) {
 				"asset_name",
 			},
 		),
+
+		requestDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: "ksei",
+				Name:      "client_request_duration",
+				Help:      "KSEI client request duration",
+				Buckets: []float64{
+					0.5, 1, 2.5, 5, 10,
+				},
+			},
+			[]string{
+				"ksei_account",
+				"endpoint",
+			},
+		),
 	}, nil
 }
 
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	e.assetValue.Describe(ch)
+	e.requestDuration.Describe(ch)
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
@@ -84,6 +101,20 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 					TimeDiff("elapsed", time.Now(), start).
 					Err(err).
 					Msg("asset value collected")
+
+				labels := prometheus.Labels{
+					"ksei_account": account.Username,
+					"endpoint":     "GetCashBalances",
+				}
+
+				e.requestDuration.With(labels).Observe(time.Since(start).Seconds())
+
+				m, err := e.requestDuration.MetricVec.GetMetricWith(labels)
+				if err != nil {
+					panic(err)
+				}
+
+				ch <- m
 			}()
 
 			cashBalances, err := c.GetCashBalances()
@@ -135,6 +166,20 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 						TimeDiff("elapsed", time.Now(), start).
 						Err(err).
 						Msg("asset value collected")
+
+					labels := prometheus.Labels{
+						"ksei_account": account.Username,
+						"endpoint":     "GetShareBalances/" + t.Name(),
+					}
+
+					e.requestDuration.With(labels).Observe(time.Since(start).Seconds())
+
+					m, err := e.requestDuration.MetricVec.GetMetricWith(labels)
+					if err != nil {
+						panic(err)
+					}
+
+					ch <- m
 				}()
 
 				shareBalances, err := c.GetShareBalances(t)
