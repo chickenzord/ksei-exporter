@@ -44,7 +44,7 @@ func main() {
 	}
 
 	registry := prometheus.NewPedanticRegistry()
-	registry.MustRegister(kseiExporter)
+	registry.MustRegister(kseiExporter.Collectors()...)
 	metricsHandler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics:   true,
 		MaxRequestsInFlight: 1,
