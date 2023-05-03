@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -30,9 +29,8 @@ func (s *Server) BasicAuthCredentials() map[string]string {
 }
 
 type KSEI struct {
-	Accounts Accounts      `envconfig:"accounts"`
-	AuthDir  string        `envconfig:"auth_dir" default:".goksei-auth"`
-	CacheTTL time.Duration `envconfig:"cache_ttl" default:"10m"`
+	Accounts Accounts `envconfig:"accounts"`
+	AuthDir  string   `envconfig:"auth_dir" default:".goksei-auth"`
 }
 
 type Config struct {
