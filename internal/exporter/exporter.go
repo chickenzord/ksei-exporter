@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -24,8 +23,7 @@ type Exporter struct {
 	accounts  []config.Account
 	authStore goksei.AuthStore
 
-	clientErrors *prometheus.CounterVec
-	assetValue   *prometheus.GaugeVec
+	assetValue *prometheus.GaugeVec
 }
 
 func New(ksei config.KSEI) (*Exporter, error) {
@@ -37,15 +35,6 @@ func New(ksei config.KSEI) (*Exporter, error) {
 	return &Exporter{
 		accounts:  ksei.Accounts,
 		authStore: authStore,
-
-		clientErrors: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: "ksei",
-				Name:      "client_errors",
-				Help:      "Errors encountered by KSEI client",
-			},
-			[]string{"ksei_account", "method"},
-		),
 
 		assetValue: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -69,7 +58,6 @@ func New(ksei config.KSEI) (*Exporter, error) {
 
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	e.assetValue.Describe(ch)
-	e.clientErrors.Describe(ch)
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
@@ -191,17 +179,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if err := errs.Wait(); err != nil {
-		ee := &Error{}
-		if errors.As(err, &ee) {
-			counter := e.clientErrors.With(prometheus.Labels{
-				"ksei_account": ee.Account,
-				"method":       ee.Method,
-			})
-			counter.Inc()
-
-			ch <- counter
-		}
-
 		log.Err(err).Msg("error collecting metrics")
 	}
 }
