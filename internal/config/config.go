@@ -8,9 +8,10 @@ import (
 )
 
 type Server struct {
-	BindHost  string   `envconfig:"bind_host" default:"0.0.0.0"`
-	BindPort  int      `envconfig:"bind_port" default:"8080"`
-	BasicAuth []string `envconfig:"basic_auth"`
+	BindHost            string   `envconfig:"bind_host" default:"0.0.0.0"`
+	BindPort            int      `envconfig:"bind_port" default:"8080"`
+	BasicAuth           []string `envconfig:"basic_auth"`
+	MaxRequestsInFlight int      `envconfig:"max_requests_in_flight" default:"3"`
 }
 
 func (s *Server) BindAddress() string {
