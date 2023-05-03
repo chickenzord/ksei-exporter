@@ -43,7 +43,7 @@ func main() {
 		r.Use(middleware.BasicAuth("ksei-exporter", cfg.Server.BasicAuthCredentials()))
 	}
 
-	registry := prometheus.NewRegistry()
+	registry := prometheus.NewPedanticRegistry()
 	registry.MustRegister(kseiExporter)
 	metricsHandler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics:   true,
