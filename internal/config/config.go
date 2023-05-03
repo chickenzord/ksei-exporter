@@ -30,10 +30,9 @@ func (s *Server) BasicAuthCredentials() map[string]string {
 }
 
 type KSEI struct {
-	Accounts        Accounts      `envconfig:"accounts"`
-	AuthDir         string        `envconfig:"auth_dir" default:".goksei-auth"`
-	RefreshInterval time.Duration `envconfig:"refresh_interval" default:"1h"`
-	RefreshJitter   float32       `envconfig:"refresh_jitter" default:"0.2"`
+	Accounts Accounts      `envconfig:"accounts"`
+	AuthDir  string        `envconfig:"auth_dir" default:".goksei-auth"`
+	CacheTTL time.Duration `envconfig:"cache_ttl" default:"10m"`
 }
 
 type Config struct {

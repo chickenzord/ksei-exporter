@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -25,18 +27,11 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	log.Info().Int("count", len(cfg.KSEI.Accounts)).Msg("KSEI accounts loaded")
-	log.Info().Msg("initializing metrics")
 
-	exp, err := exporter.New(cfg.KSEI)
+	kseiExporter, err := exporter.New(cfg.KSEI)
 	if err != nil {
 		panic(err)
 	}
-
-	log.Info().Msg("starting background metrics updater")
-
-	go func() {
-		exp.WatchMetrics()
-	}()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -48,7 +43,14 @@ func main() {
 		r.Use(middleware.BasicAuth("ksei-exporter", cfg.Server.BasicAuthCredentials()))
 	}
 
-	r.Get("/metrics", exp.HTTPHandler().ServeHTTP)
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(kseiExporter)
+	metricsHandler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		EnableOpenMetrics:   true,
+		MaxRequestsInFlight: 1,
+	})
+
+	r.Get("/metrics", metricsHandler.ServeHTTP)
 
 	log.Info().Msgf("server listening on %s", cfg.Server.BindAddress())
 

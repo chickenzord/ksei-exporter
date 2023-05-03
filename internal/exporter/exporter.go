@@ -1,15 +1,13 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
-	"math/rand"
-	"net/http"
 	"time"
 
 	"github.com/chickenzord/goksei"
 	"github.com/chickenzord/ksei-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -23,13 +21,11 @@ var (
 )
 
 type Exporter struct {
-	accounts         []config.Account
-	authStore        goksei.AuthStore
-	registry         *prometheus.Registry
-	metricAssetValue *prometheus.GaugeVec
+	accounts  []config.Account
+	authStore goksei.AuthStore
 
-	refreshInterval time.Duration
-	refreshJitter   float32
+	clientErrors *prometheus.CounterVec
+	assetValue   *prometheus.GaugeVec
 }
 
 func New(ksei config.KSEI) (*Exporter, error) {
@@ -38,167 +34,174 @@ func New(ksei config.KSEI) (*Exporter, error) {
 		return nil, err
 	}
 
-	registry := prometheus.NewRegistry()
-	metricAssetValue := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "ksei",
-			Name:      "asset_value",
-			Help:      "Financial account balance current value",
-		},
-		[]string{
-			"ksei_account",
-			"security_account",
-			"security_name",
-			"currency",
-			"asset_type",
-			"asset_subtype",
-			"asset_symbol",
-			"asset_name",
-		},
-	)
-
-	if err := registry.Register(metricAssetValue); err != nil {
-		return nil, err
-	}
-
 	return &Exporter{
-		accounts:         ksei.Accounts,
-		authStore:        authStore,
-		registry:         registry,
-		metricAssetValue: metricAssetValue,
-		refreshInterval:  ksei.RefreshInterval,
-		refreshJitter:    ksei.RefreshJitter,
+		accounts:  ksei.Accounts,
+		authStore: authStore,
+
+		clientErrors: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: "ksei",
+				Name:      "client_errors",
+				Help:      "Errors encountered by KSEI client",
+			},
+			[]string{"ksei_account", "method"},
+		),
+
+		assetValue: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: "ksei",
+				Name:      "asset_value",
+				Help:      "Financial account balance current value",
+			},
+			[]string{
+				"ksei_account",
+				"security_account",
+				"security_name",
+				"currency",
+				"asset_type",
+				"asset_subtype",
+				"asset_symbol",
+				"asset_name",
+			},
+		),
 	}, nil
 }
 
-func (e *Exporter) updateMetrics(a config.Account) error {
-	c := goksei.NewClient(goksei.ClientOpts{
-		AuthStore: e.authStore,
-		Username:  a.Username,
-		Password:  a.Password,
-	})
+func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
+	e.assetValue.Describe(ch)
+	e.clientErrors.Describe(ch)
+}
 
+func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	errs := errgroup.Group{}
 
-	errs.Go(func() error {
-		var err error
-		start := time.Now()
+	for _, account := range e.accounts {
+		account := account
 
-		defer func() {
-			log.Debug().
-				Str("account", a.Username).
-				Str("type", goksei.CashType.Name()).
-				TimeDiff("elapsed", time.Now(), start).
-				Err(err).
-				Msg("metrics updated")
-		}()
+		c := goksei.NewClient(goksei.ClientOpts{
+			AuthStore: e.authStore,
+			Username:  account.Username,
+			Password:  account.Password,
+		})
 
-		cashBalances, err := c.GetCashBalances()
-		if err != nil {
-			return err
-		}
-
-		for _, b := range cashBalances.Data {
-			bankName := "Unknown Bank"
-
-			if name, ok := goksei.CustodianBankNameByID(b.BankID); ok {
-				bankName = name
-			}
-
-			e.metricAssetValue.With(prometheus.Labels{
-				"ksei_account":     a.Username,
-				"security_account": b.AccountNumber,
-				"security_name":    bankName,
-				"currency":         b.Currency,
-				"asset_type":       goksei.CashType.Name(),
-				"asset_subtype":    "rdn",
-				"asset_symbol":     b.BankID,
-				"asset_name":       fmt.Sprintf("Cash %s", bankName),
-			}).Set(b.CurrentBalance())
-		}
-		return nil
-	})
-
-	for _, t := range portfolioTypes {
-		t := t
-
+		// GetCashBalances
 		errs.Go(func() error {
 			var err error
 			start := time.Now()
 
 			defer func() {
 				log.Debug().
-					Str("account", a.Username).
-					Str("type", t.Name()).
+					Str("account", account.Username).
+					Str("type", goksei.CashType.Name()).
 					TimeDiff("elapsed", time.Now(), start).
 					Err(err).
-					Msg("metrics updated")
+					Msg("asset value collected")
 			}()
 
-			shareBalances, err := c.GetShareBalances(t)
+			cashBalances, err := c.GetCashBalances()
 			if err != nil {
-				return err
+				return &Error{
+					Account: account.Username,
+					Method:  "GetCashBalances",
+					Cause:   err,
+				}
 			}
 
-			for _, b := range shareBalances.Data {
-				subtype := ""
+			for _, b := range cashBalances.Data {
+				bankName := "Unknown Bank"
 
-				if t == goksei.MutualFundType {
-					if mutualFund, ok := goksei.MutualFundByCode(b.Symbol()); ok {
-						subtype = mutualFund.FundType
-					} else {
-						subtype = "unknown"
-					}
+				if name, ok := goksei.CustodianBankNameByID(b.BankID); ok {
+					bankName = name
 				}
 
-				e.metricAssetValue.With(prometheus.Labels{
-					"ksei_account":     a.Username,
-					"security_account": b.Account,
-					"security_name":    b.Participant,
+				assetValue := e.assetValue.With(prometheus.Labels{
+					"ksei_account":     account.Username,
+					"security_account": b.AccountNumber,
+					"security_name":    bankName,
 					"currency":         b.Currency,
-					"asset_type":       t.Name(),
-					"asset_subtype":    subtype,
-					"asset_symbol":     b.Symbol(),
-					"asset_name":       b.Name(),
-				}).Set(b.CurrentValue())
+					"asset_type":       goksei.CashType.Name(),
+					"asset_subtype":    "rdn",
+					"asset_symbol":     b.BankID,
+					"asset_name":       fmt.Sprintf("Cash %s", bankName),
+				})
+				assetValue.Set(b.CurrentBalance())
+
+				ch <- assetValue
 			}
 
 			return nil
 		})
+
+		// GetShareBalances
+		for _, t := range portfolioTypes {
+			t := t
+
+			errs.Go(func() error {
+				var err error
+				start := time.Now()
+
+				defer func() {
+					log.Debug().
+						Str("account", account.Username).
+						Str("type", t.Name()).
+						TimeDiff("elapsed", time.Now(), start).
+						Err(err).
+						Msg("asset value collected")
+				}()
+
+				shareBalances, err := c.GetShareBalances(t)
+				if err != nil {
+					return &Error{
+						Account: account.Username,
+						Method:  "GetShareBalances",
+						Params:  []string{t.Name()},
+						Cause:   err,
+					}
+				}
+
+				for _, b := range shareBalances.Data {
+					subtype := ""
+
+					if t == goksei.MutualFundType {
+						if mutualFund, ok := goksei.MutualFundByCode(b.Symbol()); ok {
+							subtype = mutualFund.FundType
+						} else {
+							subtype = "unknown"
+						}
+					}
+
+					assetValue := e.assetValue.With(prometheus.Labels{
+						"ksei_account":     account.Username,
+						"security_account": b.Account,
+						"security_name":    b.Participant,
+						"currency":         b.Currency,
+						"asset_type":       t.Name(),
+						"asset_subtype":    subtype,
+						"asset_symbol":     b.Symbol(),
+						"asset_name":       b.Name(),
+					})
+					assetValue.Set(b.CurrentValue())
+
+					ch <- assetValue
+				}
+
+				return nil
+			})
+		}
 	}
 
-	return errs.Wait()
-}
+	if err := errs.Wait(); err != nil {
+		ee := &Error{}
+		if errors.As(err, &ee) {
+			counter := e.clientErrors.With(prometheus.Labels{
+				"ksei_account": ee.Account,
+				"method":       ee.Method,
+			})
+			counter.Inc()
 
-func (e *Exporter) UpdateMetrics() error {
-	errs := errgroup.Group{}
-
-	for _, account := range e.accounts {
-		account := account
-
-		errs.Go(func() error {
-			return e.updateMetrics(account)
-		})
-	}
-
-	return errs.Wait()
-}
-
-func (e *Exporter) WatchMetrics() {
-	for {
-		if err := e.UpdateMetrics(); err != nil {
-			log.Err(err).Msg("error updating metrics")
+			ch <- counter
 		}
 
-		delay := e.refreshInterval + time.Duration(rand.Float32()*e.refreshJitter*float32(e.refreshInterval.Nanoseconds()))
-
-		log.Debug().Msgf("sleeping %s", delay)
-		time.Sleep(delay)
+		log.Err(err).Msg("error collecting metrics")
 	}
-}
-
-func (e *Exporter) HTTPHandler() http.Handler {
-	return promhttp.HandlerFor(e.registry, promhttp.HandlerOpts{
-		EnableOpenMetrics: true,
-	})
 }
