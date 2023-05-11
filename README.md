@@ -39,7 +39,7 @@ KSEI_REFRESH_JITTER=0.2
 
 ## TODO
 
-- [ ] Support cash balance
-- [ ] Docker image build
+- [x] Support cash balance
+- [x] Docker image build
 - [ ] Setup instruction
 - [ ] Grafana dashboard example
