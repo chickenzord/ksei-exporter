@@ -11,7 +11,7 @@ Prometheus exporter for KSEI financial data as metrics. Using [GoKSEI](https://g
 ## Features
 
 - Aggregating multiple KSEI accounts in a single exporter
-- Supports Equity, Bond, and Mutual Funds
+- Supports Equity, Bond, Mutual Funds, and RDN cash balances
 
 ## Example metrics (redacted)
 
@@ -32,8 +32,6 @@ john.doe@example.com:johnsaltedpassword
 jane.doe@example.com:janesaltedpassword
 "
 KSEI_AUTH_DIR=.goksei.auth
-KSEI_REFRESH_INTERVAL=1h
-KSEI_REFRESH_JITTER=0.2
 
 ```
 
