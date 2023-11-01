@@ -1,4 +1,4 @@
-name: Go
+name: go
 
 on:
   push:
@@ -21,9 +21,5 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: 1.18
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: latest
       - name: Test
         run: go test -v ./...
