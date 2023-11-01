@@ -1,6 +1,6 @@
 module github.com/chickenzord/ksei-exporter
 
-go 1.18
+go 1.21
 
 require (
 	github.com/chickenzord/goksei v0.6.0
