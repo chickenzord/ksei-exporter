@@ -1,9 +1,9 @@
 module github.com/chickenzord/ksei-exporter
 
-go 1.18
+go 1.21
 
 require (
-	github.com/chickenzord/goksei v0.6.0
+	github.com/chickenzord/goksei v0.6.2
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
