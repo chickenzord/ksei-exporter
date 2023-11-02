@@ -24,7 +24,7 @@ var (
 	requestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "ksei",
-			Name:      "client_request_duration",
+			Name:      "client_request_duration_seconds",
 			Help:      "KSEI client request duration",
 			Buckets: []float64{
 				0.5, 1, 2.5, 5, 10,
