@@ -69,7 +69,7 @@ func (c *CashCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, b := range cashBalances.Data {
 		bankName := "Unknown Bank"
 
-		if name, ok := goksei.CustodianBankNameByID(b.BankID); ok {
+		if name, ok := goksei.CustodianBankNameByCode(b.BankID); ok {
 			bankName = name
 		}
 
