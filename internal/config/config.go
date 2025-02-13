@@ -30,8 +30,9 @@ func (s *Server) BasicAuthCredentials() map[string]string {
 }
 
 type KSEI struct {
-	Accounts Accounts `envconfig:"accounts"`
-	AuthDir  string   `envconfig:"auth_dir" default:".goksei-auth"`
+	Accounts      Accounts `envconfig:"accounts"`
+	PlainPassword bool     `envconfig:"plain_password" default:"false"`
+	AuthDir       string   `envconfig:"auth_dir" default:".goksei-auth"`
 }
 
 type Config struct {

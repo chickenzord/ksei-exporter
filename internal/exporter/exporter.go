@@ -7,8 +7,9 @@ import (
 )
 
 type Exporter struct {
-	accounts  []config.Account
-	authStore goksei.AuthStore
+	plainPassword bool
+	accounts      []config.Account
+	authStore     goksei.AuthStore
 }
 
 func New(ksei config.KSEI) (*Exporter, error) {
@@ -18,8 +19,9 @@ func New(ksei config.KSEI) (*Exporter, error) {
 	}
 
 	return &Exporter{
-		accounts:  ksei.Accounts,
-		authStore: authStore,
+		accounts:      ksei.Accounts,
+		plainPassword: ksei.PlainPassword,
+		authStore:     authStore,
 	}, nil
 }
 
@@ -34,9 +36,10 @@ func (e *Exporter) Collectors() []prometheus.Collector {
 
 	for _, account := range e.accounts {
 		client := goksei.NewClient(goksei.ClientOpts{
-			AuthStore: e.authStore,
-			Username:  account.Username,
-			Password:  account.Password,
+			AuthStore:     e.authStore,
+			Username:      account.Username,
+			Password:      account.Password,
+			PlainPassword: e.plainPassword,
 		})
 
 		for _, portfolioType := range portfolioTypes {
