@@ -18,3 +18,8 @@ linters:
       allow-first-in-block: true
       allow-whole-block: false
       branch-max-lines: 2
+    revive:
+      rules:
+        # this is not a library project
+        - name: exported
+          disabled: true
