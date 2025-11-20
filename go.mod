@@ -1,11 +1,11 @@
 module github.com/chickenzord/ksei-exporter
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.4
 
 require (
-	github.com/chickenzord/goksei v0.11.0
+	github.com/chickenzord/goksei v0.12.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 )
